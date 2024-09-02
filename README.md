@@ -26,7 +26,7 @@ minikube start (This command will start a local Kubernetes cluster using Minikub
    cd flask-mongodb-app
 ```
 
-3. **Create a Dockerfile:**
+2. **Create a Dockerfile:**
 
 ```Dockerfile
    FROM python:3.8-slim
@@ -38,13 +38,13 @@ minikube start (This command will start a local Kubernetes cluster using Minikub
    CMD ["flask", "run", "--host=0.0.0.0"]
 ```
 
-4. **Build the Docker image:**
+3. **Build the Docker image:**
    
 ```
    docker build -t flask-mongodb-app .
 ```
 
-5. **Push the image to Docker Hub or a local registry (if required):**
+4. **Push the image to Docker Hub or a local registry (if required):**
 
    If using Docker Hub:
    
