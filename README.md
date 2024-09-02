@@ -220,48 +220,8 @@ To set up Horizontal Pod Autoscaler (HPA) for the Flask application:
 
 To clean up the resources:
 ```
-kubectl delete -f flask-deployment.yaml
-kubectl delete -f mongodb-statefulset.yaml
+kubectl delete -f flask_deployment.yml
+kubectl delete -f mongodb_statefulset.yml
 minikube stop
 minikube delete
 ```
-
-1. **Enable the metrics-server in Minikube:**
-
-   ```bash
-   minikube addons enable metrics-server
-   ```
-
-2. **Create HPA:**
-
-   ```bash
-   kubectl autoscale deployment flask-app --cpu-percent=70 --min=2 --max=5
-   ```
-
-### 7. Testing
-
-- Use `curl` or any HTTP client to test the `/` and `/data` endpoints.
-- Simulate high traffic to see the HPA in action.
-
-### 8. Cleanup
-
-To clean up the resources:
-
-```bash
-kubectl delete -f flask-deployment.yaml
-kubectl delete -f mongodb-statefulset.yaml
-minikube stop
-minikube delete
-```
-
-## DNS Resolution Explanation
-
-In Kubernetes, DNS resolution is handled by `kube-dns` or `CoreDNS`, which provides internal DNS services for the cluster. Each Service in Kubernetes is assigned a DNS name in the format `service-name.namespace.svc.cluster.local`. When the Flask application tries to connect to MongoDB using `mongodb-service`, Kubernetes resolves this name to the corresponding Pod IPs within the cluster.
-
-## Resource Requests and Limits Explanation
-
-In Kubernetes, resource requests and limits ensure that each container gets the required amount of CPU and memory. The `requests` specify the minimum resources the container is guaranteed, while `limits` define the maximum resources it can use. This helps in optimizing resource allocation and avoiding scenarios where a container starves others by consuming excessive resources.
-
----
-
-This README should guide you through the entire process of deploying your Flask application with MongoDB on a Kubernetes cluster using Minikube.
