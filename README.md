@@ -14,75 +14,185 @@ Make sure the following are installed on your system:
 
 ### 1. Start Minikube
 
+```bash
 minikube start (This command will start a local Kubernetes cluster using Minikube)
+```
 
 ### 2. Build and Push the Flask Docker Image
 
 1. **Navigate to the project directory:**
 
+```bash
    cd flask-mongodb-app
-
-2. **Create a Dockerfile:**
-
-   Dockerfile
 ```
-FROM python:3.8-slim
-WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-EXPOSE 5000
-ENV FLASK_APP=app.py
-CMD ["flask", "run", "--host=0.0.0.0"]
+
+3. **Create a Dockerfile:**
+
+```Dockerfile
+   FROM python:3.8-slim
+   WORKDIR /app
+   COPY . /app
+   RUN pip install --no-cache-dir -r requirements.txt
+   EXPOSE 5000
+   ENV FLASK_APP=app.py
+   CMD ["flask", "run", "--host=0.0.0.0"]
 ```
 
 4. **Build the Docker image:**
-
+   
+```
    docker build -t flask-mongodb-app .
+```
 
 5. **Push the image to Docker Hub or a local registry (if required):**
 
    If using Docker Hub:
-
+   
+```
    docker tag flask-mongodb-app <your_dockerhub_username>/flask-mongodb-app
    docker push <your_dockerhub_username>/flask-mongodb-app
-   
+```
+
    If using Minikube's built-in Docker daemon:
 
+```
    eval $(minikube docker-env)
    docker build -t flask-mongodb-app .
+```
 
 ### 3. Create Kubernetes YAML Files
 
 1. **Flask Deployment and Service:**
 
-   Create a file named flask-deployment.yml
+   Create a file `flask_deployment.yml`
 
-2. **MongoDB StatefulSet and Service:**
+```apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-app
+        image: your-dockerhub-username/flask-mongodb-app:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MONGODB_URI
+          value: "mongodb://mongo:27017/"
+        resources:
+          requests:
+            memory: "250Mi"
+            cpu: "200m"
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-service
+spec:
+  type: NodePort
+  selector:
+    app: flask-app
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      nodePort: 30007
+```   
 
-   Create a file named mongodb-statefulset.yml
+3. **MongoDB StatefulSet and Service:**
+
+   Create a file named `mongodb_statefulset.yml`
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+  clusterIP: None
+  selector:
+    app: mongo
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+spec:
+  selector:
+    matchLabels:
+      app: mongo
+  serviceName: "mongo"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+      - name: mongo
+        image: mongo:latest
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: mongo-persistent-storage
+          mountPath: /data/db
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: "Mohan"
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: "Mohan745"
+  volumeClaimTemplates:
+  - metadata:
+      name: mongo-persistent-storage
+    spec:
+      accessModes:
+      resources:
+        requests:
+          storage: 1Gi
+```
    
 ### 4. Deploy to Minikube
 
 1. **Apply the MongoDB StatefulSet:**
 
-   kubectl apply -f mongodb-statefulset.yml
+```
+   kubectl apply -f mongodb_statefulset.yml
+```
 
 2. **Apply the Flask Deployment:**
 
-   kubectl apply -f flask-deployment.yml
+```
+   kubectl apply -f flask_deployment.yml
+```
 
 ### 5. Access the Flask Application
 
 1. **Get the NodePort of the Flask service:**
 
+```
    kubectl get svc flask-service
+```
 
 2. **Access the application:**
 
    Open your browser and navigate to:
-
+```
    http://<minikube_ip_address>:<NodePort>
-
+```
    Replace `<minikube_ip_address>` with your IP address obtained from
 
 ### 6. Enable Autoscaling (Optional)
@@ -109,239 +219,12 @@ To set up Horizontal Pod Autoscaler (HPA) for the Flask application:
 ### 8. Cleanup
 
 To clean up the resources:
-
+```
 kubectl delete -f flask-deployment.yaml
 kubectl delete -f mongodb-statefulset.yaml
 minikube stop
 minikube delete
-
-
-
-
-
-Here's a detailed README to guide you through deploying the Flask application and MongoDB on a Minikube Kubernetes cluster.
-
----
-
-# Flask MongoDB Kubernetes Deployment
-
-## Overview
-
-This guide will walk you through deploying a Python Flask application connected to a MongoDB database on a Kubernetes cluster using Minikube. The Flask application provides an API to insert and retrieve data from MongoDB, and we will deploy this setup using Kubernetes resources such as Deployments, StatefulSets, Services, Persistent Volumes, and more.
-
-## Prerequisites
-
-Ensure the following are installed on your system:
-
-- Minikube
-- Kubectl
-- Docker
-- Python 3.8 or later
-- Pip (for managing Python packages)
-
-## Steps to Deploy
-
-### 1. Start Minikube
-
-```bash
-minikube start
 ```
-
-This command will start a local Kubernetes cluster using Minikube.
-
-### 2. Build and Push the Flask Docker Image
-
-1. **Navigate to the project directory:**
-
-   ```bash
-   cd flask-mongodb-app
-   ```
-
-2. **Create a Dockerfile:**
-
-   ```Dockerfile
-   # Dockerfile
-   FROM python:3.8-slim
-
-   WORKDIR /app
-
-   COPY requirements.txt requirements.txt
-   RUN pip install -r requirements.txt
-
-   COPY . .
-
-   ENV MONGODB_URI mongodb://mongodb-service:27017/
-
-   CMD ["python", "app.py"]
-   ```
-
-3. **Build the Docker image:**
-
-   ```bash
-   docker build -t flask-mongodb-app .
-   ```
-
-4. **Push the image to Docker Hub or a local registry (if required):**
-
-   If using Docker Hub:
-
-   ```bash
-   docker tag flask-mongodb-app <your_dockerhub_username>/flask-mongodb-app
-   docker push <your_dockerhub_username>/flask-mongodb-app
-   ```
-
-   If using Minikube's built-in Docker daemon:
-
-   ```bash
-   eval $(minikube docker-env)
-   docker build -t flask-mongodb-app .
-   ```
-
-### 3. Create Kubernetes YAML Files
-
-1. **Flask Deployment and Service:**
-
-   Create a file named `flask-deployment.yaml`:
-
-   ```yaml
-   apiVersion: apps/v1
-   kind: Deployment
-   metadata:
-     name: flask-app
-   spec:
-     replicas: 2
-     selector:
-       matchLabels:
-         app: flask-app
-     template:
-       metadata:
-         labels:
-           app: flask-app
-       spec:
-         containers:
-         - name: flask-app
-           image: flask-mongodb-app:latest
-           ports:
-           - containerPort: 5000
-           resources:
-             requests:
-               memory: "250Mi"
-               cpu: "200m"
-             limits:
-               memory: "500Mi"
-               cpu: "500m"
-   ---
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: flask-service
-   spec:
-     selector:
-       app: flask-app
-     ports:
-       - protocol: TCP
-         port: 80
-         targetPort: 5000
-     type: NodePort
-   ```
-
-2. **MongoDB StatefulSet and Service:**
-
-   Create a file named `mongodb-statefulset.yaml`:
-
-   ```yaml
-   apiVersion: apps/v1
-   kind: StatefulSet
-   metadata:
-     name: mongodb
-   spec:
-     serviceName: "mongodb-service"
-     replicas: 1
-     selector:
-       matchLabels:
-         app: mongodb
-     template:
-       metadata:
-         labels:
-           app: mongodb
-       spec:
-         containers:
-         - name: mongodb
-           image: mongo:latest
-           ports:
-           - containerPort: 27017
-           env:
-           - name: MONGO_INITDB_ROOT_USERNAME
-             value: admin
-           - name: MONGO_INITDB_ROOT_PASSWORD
-             value: password
-           volumeMounts:
-           - name: mongo-persistent-storage
-             mountPath: /data/db
-     volumeClaimTemplates:
-     - metadata:
-         name: mongo-persistent-storage
-       spec:
-         accessModes: [ "ReadWriteOnce" ]
-         resources:
-           requests:
-             storage: 1Gi
-   ---
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: mongodb-service
-   spec:
-     ports:
-       - port: 27017
-     clusterIP: None
-     selector:
-       app: mongodb
-   ```
-
-### 4. Deploy to Minikube
-
-1. **Apply the MongoDB StatefulSet:**
-
-   ```bash
-   kubectl apply -f mongodb-statefulset.yaml
-   ```
-
-2. **Apply the Flask Deployment:**
-
-   ```bash
-   kubectl apply -f flask-deployment.yaml
-   ```
-
-### 5. Access the Flask Application
-
-1. **Get the NodePort of the Flask service:**
-
-   ```bash
-   kubectl get svc flask-service
-   ```
-
-   Look for the `NodePort` in the output, which will be something like `30001`.
-
-2. **Access the application:**
-
-   Open your browser and navigate to:
-
-   ```
-   http://<minikube_ip>:<NodePort>
-   ```
-
-   Replace `<minikube_ip>` with the IP address obtained from:
-
-   ```bash
-   minikube ip
-   ```
-
-   Replace `<NodePort>` with the port number you found in the previous step.
-
-### 6. Enable Autoscaling (Optional)
-
-To set up Horizontal Pod Autoscaler (HPA) for the Flask application:
 
 1. **Enable the metrics-server in Minikube:**
 
